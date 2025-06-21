@@ -290,7 +290,7 @@
 	armor_type = /datum/armor/flagelantes_chains
 	body_parts_covered = CHEST|GROIN|LEGS|ARMS
 	resistance_flags = FIRE_PROOF | ACID_PROOF //No turning to ash/mush in the quest for pain
-	allowed = list(/obj/item/book/bible, /obj/item/nullrod, /obj/item/reagent_containers/cup/glass/bottle/holywater, /obj/item/storage/fancy/candle_box, /obj/item/flashlight/flare/candle, /obj/item/tank/internals/emergency_oxygen, /obj/item/tank/internals/plasmaman)
+	allowed = /obj/item/clothing/suit/chaplainsuit::allowed //Ensure it allows the same items as chaplain's regular suit
 	hoodtype = /obj/item/clothing/head/hooded/flagelantes_chains_hood
 	var/wrap = FALSE
 	var/obj/effect/abstract/particle_holder/flagelantes_effect
