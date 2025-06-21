@@ -214,3 +214,10 @@
 	new /obj/item/clothing/suit/hooded/chaplain_hoodie/divine_archer(src)
 	new /obj/item/clothing/gloves/divine_archer(src)
 	new /obj/item/clothing/shoes/divine_archer(src)
+
+/obj/item/storage/box/holy/flagelanteschains
+	name = "Flagenantes Kit"
+	typepath_for_preview = /obj/item/clothing/suit/hooded/flagelantes_chains
+
+/obj/item/storage/box/holy/flagelanteschains/PopulateContents()
+	new /obj/item/clothing/suit/hooded/flagelantes_chains(src)
