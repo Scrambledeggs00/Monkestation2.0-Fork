@@ -299,25 +299,37 @@
 	var/footstep = 1
 	var/footstep_max = 2
 
-
-
 /obj/item/clothing/suit/hooded/flagelantes_chains/equipped(mob/M, slot)
 	. = ..()
-	if(slot == ITEM_SLOT_OCLOTHING && iscarbon(M)) //Signals for sensing damage, healing, wounds, and movement
+
+	//If the suit is worn in the suit slot and the wearer is a carbon...
+	if(slot == ITEM_SLOT_OCLOTHING && iscarbon(M))
+		//Register the signals needed for the item to the wearer
 		RegisterSignal(M, COMSIG_LIVING_HEALTH_UPDATE, PROC_REF(on_health_change))
 		RegisterSignal(M, COMSIG_CARBON_GAIN_WOUND, PROC_REF(handle_wound_add))
 		RegisterSignal(M, COMSIG_CARBON_LOSE_WOUND, PROC_REF(handle_wound_remove))
 		RegisterSignal(M, COMSIG_MOVABLE_MOVED, PROC_REF(on_mob_move))
+	//If not...
 	else
+		//Unregister them from the wearer
 		UnregisterSignal(M, list(COMSIG_LIVING_HEALTH_UPDATE, COMSIG_CARBON_GAIN_WOUND, COMSIG_CARBON_LOSE_WOUND, COMSIG_MOVABLE_MOVED))
 
 /obj/item/clothing/suit/hooded/flagelantes_chains/dropped(mob/M)
 	. = ..()
+
+	//Unregister the signals
 	UnregisterSignal(M, list(COMSIG_LIVING_HEALTH_UPDATE, COMSIG_CARBON_GAIN_WOUND, COMSIG_CARBON_LOSE_WOUND, COMSIG_MOVABLE_MOVED))
+
+	//Ensure that TRAIT_IGNOREDAMAGESLOWDOWN is removed from the wearer
 	REMOVE_TRAIT(M, TRAIT_IGNOREDAMAGESLOWDOWN, type)
+
+	//Reset values to prevent them from applying to others
 	total_wounds = 0
 	slowdown = 0
+
+	//If the flagelantes_effect was active when dropped...
 	if(flagelantes_effect)
+		//Delete it
 		QDEL_NULL(flagelantes_effect)
 /*
 /obj/item/clothing/suit/hooded/flagelantes_chains/ToggleHood() //So people can't just quickly wear it whenever they want to
@@ -359,38 +371,47 @@
 		if(flagelantes_effect)
 			QDEL_NULL(flagelantes_effect)
 */
+///Change speed when their health is changed
 /obj/item/clothing/suit/hooded/flagelantes_chains/proc/on_health_change(mob/living/carbon/human/H, amount, damtype)
-
 	SIGNAL_HANDLER
 
-	if(suittoggled) //Make sure it only checks when the hood is up
-		change_slowdown(H, slowdown) //Change speed when healed
+	//Make sure it only checks when the hood is up
+	if(suittoggled)
+		change_slowdown(H)
 
+///Change speed when gaining a wound
 /obj/item/clothing/suit/hooded/flagelantes_chains/proc/handle_wound_add(mob/living/carbon/human/H, datum/wound/W, obj/item/bodypart/L)
-
 	SIGNAL_HANDLER
 
-	if(suittoggled) //Make sure it only checks when the hood is up
-		change_slowdown(H, slowdown) //Change speed when gaining a wound
+	//Make sure it only checks when the hood is up
+	if(suittoggled)
+		change_slowdown(H)
 
-
+///Change speed when losing a wound
 /obj/item/clothing/suit/hooded/flagelantes_chains/proc/handle_wound_remove(mob/living/carbon/human/H, datum/wound/W, obj/item/bodypart/L)
-
 	SIGNAL_HANDLER
 
-	if(suittoggled) //Make sure it only checks when the hood is up
-		change_slowdown(H, slowdown) //Change speed when losing a wound
+	//Make sure it only checks when the hood is up
+	if(suittoggled)
+		change_slowdown(H)
 
-/obj/item/clothing/suit/hooded/flagelantes_chains/proc/change_slowdown(mob/living/carbon/human/H, starting_slowdown)
+///Changes the suit's slowdown based on the wearer's wounds and health
+/obj/item/clothing/suit/hooded/flagelantes_chains/proc/change_slowdown(mob/living/carbon/human/H)
+	///The wearer's current health percentage based on their current and max health
 	var/health_percent = H.health / H.maxHealth
+	///The suit's slowdown before any changes by the current instance of the proc
+	var/starting_slowdown = slowdown
+	///What will be assigned as the suit's slowdown value
 	var/final_slowdown = 0
 
 	total_wounds = length(H.all_wounds) //Thanks Molti, Baimo, and Bibby
 
+	//Ensure that total_wounds does not remain negative if it somehow becomes so
 	if(total_wounds < 0)
 		total_wounds = 0
 
-	switch(total_wounds) //Change slowdown based on wounds
+	//Change slowdown based on wounds
+	switch(total_wounds)
 		if(1)
 			final_slowdown += -0.1
 		if(2)
@@ -398,7 +419,8 @@
 		if(3 to INFINITY) //Max of three wounds for slowdown calculation
 			final_slowdown += -0.4
 
-	switch(health_percent) //Change slowdown based on health
+	//Change slowdown based on health
+	switch(health_percent)
 		if(0.90 to INFINITY)
 			final_slowdown += 1
 		if(0.80 to 0.89)
@@ -409,28 +431,43 @@
 			final_slowdown += -0.2
 		if(0.10 to 0.29)
 			final_slowdown += -0.4
-		if(0 to 0.9)
+		if(0 to 0.09) //Max speed at 9% health and bellow
 			final_slowdown += -0.6
 
 	slowdown = final_slowdown //set slowdown
 
-	if(slowdown == -1) //Alert the user and those around that they've achieved MAXIMUM OVERDRIVE
+	//If the wearer has reached max speed...
+	if(slowdown == -1)
+		//And it has not already sent the message...
 		if(!speed_message)
+			//Alert the wearer and those around that they've achieved MAXIMUM OVERDRIVE
 			to_chat(H, span_notice("You feel yourself grow closer to the divine as your sins seep out of the chains!."))
 			H.visible_message(span_warning("[H] starts sweating profusely!"))
+
+			//Set to true so the message does not spam itself
 			speed_message = TRUE
+
+	//Else if they are not at max speed...
 	else
+		//Set to false to allow speed message to show when they do reach max speed
 		speed_message = FALSE
 
-	appearance_change(H, slowdown) //Add particles depending on slowdown
+	//Add particles depending on slowdown
+	appearance_change(H, slowdown)
 
-	change_footstep(slowdown) //Change occurance of chain noise
+	//Change occurance of chain noise
+	change_footstep(slowdown)
 
-	if(slowdown > starting_slowdown) //Show bubble alert based on starting and new slowdown
+	//If the current slowdown is higher than at the start of the proc...
+	if(slowdown > starting_slowdown)
+		//Alert the wearer they have slowed down
 		H.balloon_alert(H, "You slow down!")
+	//Else, if it is lower...
 	else if(slowdown < starting_slowdown)
+		//Alert the wearer they have sped up
 		H.balloon_alert(H, "You speed up!")
 
+///Determines if the particles effect should be shown or not based on the suit's current slowdown
 /obj/item/clothing/suit/hooded/flagelantes_chains/proc/appearance_change(mob/living/carbon/human/H, slowdown)
 	switch(slowdown)
 		if(-0.9 to 1)
@@ -441,7 +478,9 @@
 				flagelantes_effect = new(H, /particles/droplets)
 				flagelantes_effect.color = "#a41c1c"
 
-/obj/item/clothing/suit/hooded/flagelantes_chains/proc/change_footstep(slowdown) //So the chain sounds are not spammed at higher speeds
+///Determines how often the chain sound should be made when moving
+/obj/item/clothing/suit/hooded/flagelantes_chains/proc/change_footstep(slowdown)
+	//footstep_max increases as speed increases to prevent spamming the sound
 	switch(slowdown)
 		if(0 to 1)
 			footstep_max = 2
@@ -452,6 +491,7 @@
 		if(-INFINITY to -1)
 			footstep_max = 5
 
+///When the wearer moves
 /obj/item/clothing/suit/hooded/flagelantes_chains/proc/on_mob_move()
 	var/mob/living/carbon/human/H = loc
 	if(!istype(H) || H.wear_suit != src)
