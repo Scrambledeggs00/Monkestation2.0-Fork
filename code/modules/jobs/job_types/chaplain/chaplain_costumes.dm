@@ -292,7 +292,9 @@
 	resistance_flags = FIRE_PROOF | ACID_PROOF //No turning to ash/mush in the quest for pain
 	allowed = /obj/item/clothing/suit/chaplainsuit::allowed //Ensure it allows the same items as chaplain's regular suit
 	hoodtype = /obj/item/clothing/head/hooded/flagelantes_chains_hood
-	var/wrap = FALSE
+	///If they are currently trying to toggle the hood
+	var/currently_wrapping = FALSE
+	///The effect to play at max speed
 	var/obj/effect/abstract/particle_holder/flagelantes_effect
 	var/total_wounds
 	var/speed_message = FALSE
@@ -328,6 +330,64 @@
 	slowdown = 0
 
 	//If the flagelantes_effect was active when dropped...
+	if(flagelantes_effect)
+		//Delete it
+		QDEL_NULL(flagelantes_effect)
+
+///When they try to wear the hood
+/obj/item/clothing/suit/hooded/flagelantes_chains/on_hood_up(obj/item/clothing/head/hooded/hood) //DOES NOT WORK. IS CALLED AFTER HOOD IS CREATED
+	///Person attempting to wear hood
+	var/mob/living/carbon/human/User = src.loc
+
+	//If they are currently in the process of toggling the hood...
+	if(currently_wrapping)
+		//Warn them and end the proc
+		to_chat(User, span_warning("You're already wrapping the chains around yourself!."))
+		return
+	//Else, if the suit is not toggled...
+	else if(!suittoggled)
+		//If they are not currently wearing it...
+		if(User.wear_suit != src)
+			//Warn them and end the proc
+			to_chat(User, span_warning("You must be wearing [src] to put up the hood!"))
+			return
+		//If they are already wearing something on their head...
+		if(User.head)
+			//Warn them and end the proc
+			to_chat(User, span_warning("You're already wearing something on your head!"))
+			return
+		//Inform the wearer and those around that they are toggling the hood
+		User.visible_message(span_warning("[User] starts wrapping [src] around themselves!"), span_notice("You start wrapping the chains around yourself."))
+		playsound(get_turf(src), 'sound/misc/chain_rattling.ogg', 10, TRUE, -1)
+		//Set to false to prevent them from spamming the hood during do_after
+		currently_wrapping = TRUE
+		//If they move before it is over...
+		if(!do_after(User, 3 SECONDS, User))
+			currently_wrapping = FALSE
+			//Warn them and end the proc
+			User.balloon_alert(User, "You were interupted!")
+			return
+		suittoggled = TRUE
+		//Allow user to ignore damage slowdown
+		ADD_TRAIT(User, TRAIT_IGNOREDAMAGESLOWDOWN, type)
+		//Set suit's initial slowdown based on wearer's health
+		change_slowdown(User)
+		currently_wrapping = FALSE
+
+//When they take the hood off
+/obj/item/clothing/suit/hooded/flagelantes_chains/on_hood_down(obj/item/clothing/head/hooded/hood)
+	///Person attempting to wear hood
+	var/mob/living/carbon/User = src.loc
+
+	//Remove damage slowdown immunity from wearer
+	REMOVE_TRAIT(User, TRAIT_IGNOREDAMAGESLOWDOWN, type)
+
+	//Reset values to prevent issues
+	total_wounds = 0
+	slowdown = 0
+	suittoggled = FALSE
+
+	//If the visual effect was active...
 	if(flagelantes_effect)
 		//Delete it
 		QDEL_NULL(flagelantes_effect)
